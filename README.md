@@ -35,8 +35,6 @@ Deployment coming soon
 - [Status](#status)
 - [Data Privacy](#data-privacy)
 - [Disclaimer](#disclaimer)
-- [Credits](#credits)
-- [Philosophy](#philosophy)
 
 ## Project Overview
 
