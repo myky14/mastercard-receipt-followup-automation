@@ -8,7 +8,7 @@ from rapidfuzz import fuzz
 from src.config import (
     AMOUNT_TOLERANCE,
     DEFAULT_CARDHOLDER_MAP,
-    HIGH_SIMILARITY_THRESHOLD,
+    DESCRIPTION_TIE_BREAK_MARGIN,
     MEDIUM_SIMILARITY_THRESHOLD,
     OUTPUT_COLUMNS,
 )
@@ -41,26 +41,23 @@ def match_transactions(
         best_match = candidates.iloc[0]
         record = _build_match_record(qbo_row, best_match)
 
-        if len(candidates) > 1:
-            record["Match confidence"] = "Review"
-            record["Match note"] = (
-                f"Multiple bank transactions matched amount/date; best candidate selected "
-                f"from {len(candidates)} possible matches."
-            )
-        elif not best_match["cardholder_name"]:
+        if not best_match["cardholder_name"]:
             record["Match confidence"] = "Review"
             record["Match note"] = "Amount/date matched, but the card number is not in the mapping."
-        elif best_match["description_similarity"] >= HIGH_SIMILARITY_THRESHOLD:
+        elif len(candidates) == 1:
             record["Match confidence"] = "High"
-            record["Match note"] = "Amount/date matched and descriptions are strongly similar."
+            record["Match note"] = _amount_date_match_note(best_match)
             used_bank_indexes.add(int(best_match.name))
-        elif best_match["description_similarity"] >= MEDIUM_SIMILARITY_THRESHOLD:
+        elif _has_clear_description_tie_break(candidates):
             record["Match confidence"] = "Medium"
-            record["Match note"] = "Amount/date matched, but description similarity is weaker."
+            record["Match note"] = _multiple_candidate_match_note(best_match, len(candidates))
             used_bank_indexes.add(int(best_match.name))
         else:
             record["Match confidence"] = "Review"
-            record["Match note"] = "Amount/date matched, but description similarity is very weak."
+            record["Match note"] = (
+                "Multiple bank transactions matched amount/date; "
+                "description tie-breaker was not clear."
+            )
 
         match_records.append(record)
 
@@ -123,6 +120,36 @@ def _score_candidates(
         ascending=[False, True],
     )
     return scored
+
+
+def _has_clear_description_tie_break(candidates: pd.DataFrame) -> bool:
+    """Return True when description similarity clearly separates the best candidate."""
+    if len(candidates) < 2:
+        return True
+
+    best_similarity = float(candidates.iloc[0]["description_similarity"])
+    next_best_similarity = float(candidates.iloc[1]["description_similarity"])
+    return best_similarity - next_best_similarity >= DESCRIPTION_TIE_BREAK_MARGIN
+
+
+def _amount_date_match_note(bank_row: pd.Series) -> str:
+    if _description_differs(bank_row):
+        return "Matched by amount/date; description differs."
+    return "Matched by amount and date."
+
+
+def _multiple_candidate_match_note(bank_row: pd.Series, candidate_count: int) -> str:
+    note = (
+        f"Matched by amount/date; selected best description match "
+        f"from {candidate_count} candidates."
+    )
+    if _description_differs(bank_row):
+        return f"{note} Description differs."
+    return note
+
+
+def _description_differs(bank_row: pd.Series) -> bool:
+    return float(bank_row.get("description_similarity", 0)) < MEDIUM_SIMILARITY_THRESHOLD
 
 
 def _base_qbo_record(qbo_row: pd.Series) -> dict[str, object]:

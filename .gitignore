@@ -15,4 +15,3 @@ output/
 .pytest_cache/
 .vscode/
 docs/
-tests/

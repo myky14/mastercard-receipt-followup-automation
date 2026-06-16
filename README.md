@@ -90,7 +90,7 @@ ZIP Download
 - Adjust date tolerance for matching
 - Clean column names with capitalization and spacing variations
 - Normalize QBO and bank transaction amounts
-- Match transactions using amount, date, and description similarity
+- Match transactions using amount and date as the primary signals
 - Identify cardholders using card number last four digits
 - Preview matched, review, and unmatched transactions
 - Download all Excel outputs as a ZIP file
@@ -102,14 +102,14 @@ ZIP Download
 - Bank amount is converted to an absolute value.
 - Amounts must match within `0.01`.
 - Dates must be within the selected tolerance, defaulting to `+/- 3 days`.
-- RapidFuzz compares descriptions when choosing the best match.
+- RapidFuzz compares descriptions only when choosing between multiple amount/date candidates.
 - Confirmed bank transactions are not reused for multiple QBO rows.
 
 Confidence levels:
 
-- `High`: amount/date match with strong description similarity
-- `Medium`: amount/date match with weaker description similarity
-- `Review`: multiple candidates, weak description match, or unmapped card number
+- `High`: amount/date match with one bank candidate
+- `Medium`: amount/date match with multiple candidates where description similarity clearly identifies the best candidate
+- `Review`: multiple candidates with no clear best candidate, unmapped card number, or another issue needing manual review
 - `Unmatched`: no suitable bank transaction found
 
 ## Results

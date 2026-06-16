@@ -149,7 +149,7 @@ def render_about_project() -> None:
             - Cleaning QBO unmatched Mastercard transaction exports
             - Cleaning bank Mastercard transaction exports
             - Matching QBO transactions to bank transactions by amount and date
-            - Using description similarity to support uncertain matches
+            - Using description similarity as a tie-breaker for duplicate candidates
             - Identifying cardholders from the last four digits of the card number
             - Separating transactions into one Excel file per cardholder
             - Creating review and unmatched files for safer manual follow-up
@@ -218,7 +218,7 @@ def render_workflow_visual() -> None:
             <div class="workflow-card">
                 <div class="workflow-number">3</div>
                 <div class="workflow-title">Match Transactions</div>
-                <div class="workflow-copy">Compare amount, date, and description similarity.</div>
+                <div class="workflow-copy">Compare amount and date; use description similarity to break ties.</div>
             </div>
             <div class="workflow-card">
                 <div class="workflow-number">4</div>
