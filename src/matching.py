@@ -9,7 +9,6 @@ from src.config import (
     AMOUNT_TOLERANCE,
     DEFAULT_CARDHOLDER_MAP,
     DESCRIPTION_TIE_BREAK_MARGIN,
-    MEDIUM_SIMILARITY_THRESHOLD,
     OUTPUT_COLUMNS,
 )
 
@@ -20,7 +19,7 @@ def match_transactions(
     date_tolerance_days: int = 3,
     cardholder_map: dict[str, str] | None = None,
 ) -> pd.DataFrame:
-    """Match QBO transactions to bank transactions using amount, date, and text similarity."""
+    """Match QBO transactions to bank transactions using amount/date, with text as a tie-breaker."""
     mapping = cardholder_map or DEFAULT_CARDHOLDER_MAP
     used_bank_indexes: set[int] = set()
     match_records: list[dict[str, object]] = []
@@ -46,11 +45,14 @@ def match_transactions(
             record["Match note"] = "Amount/date matched, but the card number is not in the mapping."
         elif len(candidates) == 1:
             record["Match confidence"] = "High"
-            record["Match note"] = _amount_date_match_note(best_match)
+            record["Match note"] = "Matched by amount and date."
             used_bank_indexes.add(int(best_match.name))
         elif _has_clear_description_tie_break(candidates):
             record["Match confidence"] = "Medium"
-            record["Match note"] = _multiple_candidate_match_note(best_match, len(candidates))
+            record["Match note"] = (
+                f"Matched by amount/date; selected best candidate from "
+                f"{len(candidates)} possible matches."
+            )
             used_bank_indexes.add(int(best_match.name))
         else:
             record["Match confidence"] = "Review"
@@ -130,26 +132,6 @@ def _has_clear_description_tie_break(candidates: pd.DataFrame) -> bool:
     best_similarity = float(candidates.iloc[0]["description_similarity"])
     next_best_similarity = float(candidates.iloc[1]["description_similarity"])
     return best_similarity - next_best_similarity >= DESCRIPTION_TIE_BREAK_MARGIN
-
-
-def _amount_date_match_note(bank_row: pd.Series) -> str:
-    if _description_differs(bank_row):
-        return "Matched by amount/date; description differs."
-    return "Matched by amount and date."
-
-
-def _multiple_candidate_match_note(bank_row: pd.Series, candidate_count: int) -> str:
-    note = (
-        f"Matched by amount/date; selected best description match "
-        f"from {candidate_count} candidates."
-    )
-    if _description_differs(bank_row):
-        return f"{note} Description differs."
-    return note
-
-
-def _description_differs(bank_row: pd.Series) -> bool:
-    return float(bank_row.get("description_similarity", 0)) < MEDIUM_SIMILARITY_THRESHOLD
 
 
 def _base_qbo_record(qbo_row: pd.Series) -> dict[str, object]:

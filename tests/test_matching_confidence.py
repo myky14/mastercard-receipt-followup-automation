@@ -45,8 +45,27 @@ class MatchingConfidenceTests(unittest.TestCase):
         results = match_transactions(_qbo_row("META"), bank_df)
 
         self.assertEqual(results.loc[0, "Match confidence"], "High")
+        self.assertEqual(results.loc[0, "Match note"], "Matched by amount and date.")
         self.assertEqual(results.loc[0, "Cardholder name"], "Catherine Bainbridge")
         self.assertNotIn("very weak", results.loc[0, "Match note"])
+
+    def test_real_world_single_candidate_description_variants_are_high(self) -> None:
+        examples = [
+            ("Bluebird", "BLUEBIRD (IN)"),
+            ("Banff Springs Hotel", "BANFF SPRINGS HOTEL CO"),
+            ("Anthropic", "ANTHROPIC"),
+        ]
+
+        for qbo_description, bank_description in examples:
+            with self.subTest(qbo_description=qbo_description):
+                results = match_transactions(
+                    _qbo_row(qbo_description),
+                    pd.DataFrame([_bank_row(bank_description)]),
+                )
+
+                self.assertEqual(results.loc[0, "Match confidence"], "High")
+                self.assertEqual(results.loc[0, "Match note"], "Matched by amount and date.")
+                self.assertEqual(results.loc[0, "Cardholder name"], "Catherine Bainbridge")
 
     def test_multiple_candidates_use_description_similarity_for_medium_match(self) -> None:
         bank_df = pd.DataFrame(
@@ -60,7 +79,7 @@ class MatchingConfidenceTests(unittest.TestCase):
 
         self.assertEqual(results.loc[0, "Match confidence"], "Medium")
         self.assertEqual(results.loc[0, "Bank reference"], "MC1001")
-        self.assertIn("selected best description match", results.loc[0, "Match note"])
+        self.assertIn("selected best candidate", results.loc[0, "Match note"])
 
     def test_multiple_candidates_with_no_clear_best_remain_review(self) -> None:
         bank_df = pd.DataFrame(
