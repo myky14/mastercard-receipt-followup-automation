@@ -321,6 +321,7 @@ Any sample files are fictional.
 
 This project is not affiliated with any employer or client.
 
+---
 
 <div align="center">
 
