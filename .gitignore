@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+
+.venv/
+venv/
+env/
+.env
+
+output/
+*.zip
+*.xlsx
+
+.DS_Store
+.streamlit/secrets.toml
+.pytest_cache/
+.vscode/
