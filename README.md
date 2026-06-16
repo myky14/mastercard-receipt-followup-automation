@@ -11,7 +11,9 @@
 
 ## Live Demo
 
-Deployment coming soon
+🚀 Try the application here:
+
+https://kynguyen-mastercard-receipt-followup-automation.streamlit.app/
 
 ## Table of Contents
 
@@ -322,16 +324,21 @@ This project is not affiliated with any employer or client.
 
 <div align="center">
 
-### Built with Python, Streamlit & Real-World Accounting Workflows
-
-Created by <b>Nguyen Du My Ky</b>
-
-Business Information Systems Student
-
-Accounting Process Automation - Data Workflow Design - Internal Business Tools
+Built and designed by <b>Nguyen Du My Ky</b>
 
 <br>
 
-<i>Automate repetitive work. Keep humans in control.</i>
+Mastercard Receipt Follow-up Automation
+
+<br>
+
+QBO Matching • Cardholder Identification • Excel Reporting • Receipt Follow-up
+
+<br><br>
+
+GitHub: https://github.com/myky14
+
+|
+LinkedIn: https://www.linkedin.com/in/myky14/
 
 </div>
