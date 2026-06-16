@@ -326,19 +326,10 @@ This project is not affiliated with any employer or client.
 
 Built and designed by <b>Nguyen Du My Ky</b>
 
-<br>
-
 Mastercard Receipt Follow-up Automation
-
-<br>
 
 QBO Matching • Cardholder Identification • Excel Reporting • Receipt Follow-up
 
-<br><br>
-
-GitHub: https://github.com/myky14
-
-|
-LinkedIn: https://www.linkedin.com/in/myky14/
+GitHub: https://github.com/myky14   |   LinkedIn: https://www.linkedin.com/in/myky14/
 
 </div>
