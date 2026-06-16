@@ -50,6 +50,7 @@ def dataframe_to_excel_bytes(df: pd.DataFrame, sheet_name: str = "Transactions")
     """Write a DataFrame to a professionally formatted Excel workbook."""
     buffer = BytesIO()
     export_df = _ensure_output_columns(df).copy()
+    export_df = export_df.fillna("")
 
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         export_df.to_excel(writer, index=False, sheet_name=sheet_name)
@@ -64,7 +65,30 @@ def _ensure_output_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df.reindex(columns=OUTPUT_COLUMNS)
 
 
+def _safe_excel_text(value) -> str:
+    if value is None:
+        return ""
+    if not pd.api.types.is_scalar(value):
+        return str(value)
+
+    try:
+        is_missing = pd.isna(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+    try:
+        if bool(is_missing):
+            return ""
+    except (TypeError, ValueError):
+        return str(value)
+
+    return str(value)
+
+
 def _format_worksheet(worksheet, df: pd.DataFrame) -> None:
+    if worksheet.max_row < 1 or worksheet.max_column < 1:
+        return
+
     header_fill = PatternFill("solid", fgColor="1F4E78")
     header_font = Font(color="FFFFFF", bold=True)
 
@@ -74,21 +98,21 @@ def _format_worksheet(worksheet, df: pd.DataFrame) -> None:
         cell.alignment = Alignment(horizontal="center")
 
     worksheet.freeze_panes = "A2"
-    worksheet.auto_filter.ref = worksheet.dimensions
+    if worksheet.dimensions and worksheet.max_row >= 1 and worksheet.max_column >= 1:
+        worksheet.auto_filter.ref = worksheet.dimensions
 
     for column_cells in worksheet.columns:
         column_letter = get_column_letter(column_cells[0].column)
-        header = str(column_cells[0].value)
-        width = max(
-            len(header),
-            *[
-                len(str(cell.value)) if cell.value is not None else 0
-                for cell in column_cells[1:]
-            ],
-        )
-        worksheet.column_dimensions[column_letter].width = min(max(width + 2, 12), 48)
+        values = [_safe_excel_text(column_cells[0].value)]
 
-        lower_header = header.lower()
+        # Convert safely before measuring because Excel cells can hold blank or unusual values.
+        for cell in column_cells[1:]:
+            values.append(_safe_excel_text(cell.value))
+
+        max_len = max((len(value) for value in values), default=0)
+        worksheet.column_dimensions[column_letter].width = min(max(max_len + 2, 12), 48)
+
+        lower_header = values[0].lower()
         for cell in column_cells[1:]:
             if "date" in lower_header:
                 cell.number_format = "yyyy-mm-dd"

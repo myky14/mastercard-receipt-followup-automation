@@ -14,3 +14,5 @@ output/
 .streamlit/secrets.toml
 .pytest_cache/
 .vscode/
+docs/
+tests/

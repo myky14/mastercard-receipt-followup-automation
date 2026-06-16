@@ -2,8 +2,6 @@
 
 # Mastercard Receipt Follow-up Automation
 
-![Project banner](assets/banner.png)
-
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-Data%20Cleaning-150458?style=for-the-badge&logo=pandas&logoColor=white)
@@ -207,7 +205,6 @@ mastercard-receipt-followup-automation/
 |   |-- bank_sample.csv
 |   `-- card_mapping.csv
 |-- output/
-|-- docs/
 `-- assets/
 ```
 
@@ -331,7 +328,7 @@ Created by <b>Nguyen Du My Ky</b>
 
 Business Information Systems Student
 
-Accounting Process Automation • Data Workflow Design • Internal Business Tools
+Accounting Process Automation - Data Workflow Design - Internal Business Tools
 
 <br>
 
