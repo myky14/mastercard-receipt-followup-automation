@@ -93,6 +93,7 @@ ZIP Download
 - Match transactions using amount and date as the primary signals
 - Identify cardholders using card number last four digits
 - Preview matched, review, and unmatched transactions
+- Resolve review transactions in Streamlit before downloading the ZIP
 - Download all Excel outputs as a ZIP file
 
 ## Matching Logic
@@ -110,6 +111,7 @@ Confidence levels:
 - `High`: amount/date match with one bank candidate
 - `Medium`: amount/date match with multiple candidates where description similarity clearly identifies the best candidate
 - `Review`: multiple candidates with no clear best candidate, unmapped card number, or another issue needing manual review
+- `Manual`: review item assigned to a cardholder in the Streamlit review section
 - `Unmatched`: no suitable bank transaction found
 
 ## Results
@@ -260,6 +262,14 @@ Optional columns:
 
 Cardholder mapping is stored in `src/config.py` and shown in `sample_data/card_mapping.csv`.
 
+Current built-in cardholders:
+
+- Catherine Bainbridge
+- Archita Ghosh
+- Brittany Leborgne
+- Ernest Webb
+- Shantae Gibson
+
 ## Output Files
 
 The ZIP download contains:
@@ -268,10 +278,13 @@ The ZIP download contains:
 - `Archita_Ghosh.xlsx`
 - `Brittany_Leborgne.xlsx`
 - `Ernest_Webb.xlsx`
+- `Shantae_Gibson.xlsx`
 - `Need_Review.xlsx`
 - `Unmatched_QBO.xlsx`
 
 Each Excel file includes QBO details, bank match details, cardholder name, match confidence, and match notes.
+
+If the app finds ambiguous matches or missing cardholder mappings, those rows appear in a manual review section before the ZIP download. Each review item can be assigned to a cardholder, kept in `Need_Review.xlsx`, or marked as unmatched for `Unmatched_QBO.xlsx`.
 
 ## Screenshots
 

@@ -67,6 +67,14 @@ class MatchingConfidenceTests(unittest.TestCase):
                 self.assertEqual(results.loc[0, "Match note"], "Matched by amount and date.")
                 self.assertEqual(results.loc[0, "Cardholder name"], "Catherine Bainbridge")
 
+    def test_shantae_gibson_card_mapping_is_available(self) -> None:
+        bank_df = pd.DataFrame([_bank_row("HOTEL PARKING", card_last4="3810")])
+
+        results = match_transactions(_qbo_row("HOTEL PARKING"), bank_df)
+
+        self.assertEqual(results.loc[0, "Match confidence"], "High")
+        self.assertEqual(results.loc[0, "Cardholder name"], "Shantae Gibson")
+
     def test_multiple_candidates_use_description_similarity_for_medium_match(self) -> None:
         bank_df = pd.DataFrame(
             [

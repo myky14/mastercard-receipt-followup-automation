@@ -15,12 +15,12 @@ from src.config import CARDHOLDER_NAMES, OUTPUT_COLUMNS
 def build_output_frames(results_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """Split matched results into the required workbook outputs."""
     frames: dict[str, pd.DataFrame] = {}
-    confident = results_df["Match confidence"].isin(["High", "Medium"])
+    cardholder_ready = results_df["Match confidence"].isin(["High", "Medium", "Manual"])
 
     for cardholder_name in CARDHOLDER_NAMES:
         filename = f"{cardholder_name.replace(' ', '_')}.xlsx"
         frames[filename] = _ensure_output_columns(
-            results_df.loc[confident & (results_df["Cardholder name"] == cardholder_name)]
+            results_df.loc[cardholder_ready & (results_df["Cardholder name"] == cardholder_name)]
         )
 
     frames["Need_Review.xlsx"] = _ensure_output_columns(

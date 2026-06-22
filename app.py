@@ -10,9 +10,15 @@ from src.cleaning import (
     prepare_bank_transactions,
     prepare_qbo_transactions,
 )
-from src.config import DEFAULT_DATE_TOLERANCE_DAYS
+from src.config import CARDHOLDER_NAMES, DEFAULT_DATE_TOLERANCE_DAYS
 from src.exporter import create_output_zip
 from src.matching import build_summary_metrics, match_transactions
+from src.review import (
+    ASSIGN_TO_CARDHOLDER,
+    KEEP_IN_NEED_REVIEW,
+    MARK_AS_UNMATCHED,
+    apply_review_decisions,
+)
 
 
 st.set_page_config(
@@ -303,6 +309,71 @@ def display_summary(metrics: dict[str, object]) -> None:
     cols[4].metric("Match rate", f"{metrics['Match rate']:.1%}")
 
 
+def _format_review_item_label(row_index: int, row: pd.Series) -> str:
+    description = row.get("QBO Bank description", "Transaction")
+    amount = row.get("QBO Amount", 0)
+    try:
+        amount_text = f"${float(amount):,.2f}"
+    except (TypeError, ValueError):
+        amount_text = str(amount)
+    return f"Review item {row_index + 1}: {description} ({amount_text})"
+
+
+def render_review_decisions(review_df: pd.DataFrame) -> None:
+    st.subheader("Manual Review")
+    st.write(
+        "Review items are transactions where the app found an ambiguous match or missing "
+        "cardholder mapping. You can resolve them here before generating the final ZIP."
+    )
+
+    if review_df.empty:
+        st.success("No review items found. The ZIP is ready to download.")
+        return
+
+    st.dataframe(review_df, use_container_width=True, hide_index=True)
+    st.caption("Choose an action for each review item, then apply the decisions.")
+
+    decisions: dict[int, dict[str, str]] = {}
+    action_options = [
+        KEEP_IN_NEED_REVIEW,
+        ASSIGN_TO_CARDHOLDER,
+        MARK_AS_UNMATCHED,
+    ]
+
+    for row_index, row in review_df.iterrows():
+        with st.expander(_format_review_item_label(row_index, row), expanded=False):
+            st.write(f"QBO description: {row.get('QBO Bank description', '')}")
+            st.write(f"Bank description: {row.get('Bank description', '')}")
+            st.write(f"Current note: {row.get('Match note', '')}")
+
+            action = st.selectbox(
+                "Decision",
+                action_options,
+                key=f"review_action_{row_index}",
+            )
+            selected_cardholder = ""
+
+            if action == ASSIGN_TO_CARDHOLDER:
+                selected_cardholder = st.selectbox(
+                    "Cardholder",
+                    CARDHOLDER_NAMES,
+                    key=f"review_cardholder_{row_index}",
+                )
+
+            decisions[int(row_index)] = {
+                "action": action,
+                "cardholder_name": selected_cardholder,
+            }
+
+    if st.button("Apply Review Decisions", type="primary"):
+        reviewed_results = apply_review_decisions(st.session_state["results"], decisions)
+        st.session_state["results"] = reviewed_results
+        st.session_state["zip_buffer"] = create_output_zip(reviewed_results)
+        st.session_state["review_decisions_applied"] = True
+        st.session_state["review_message"] = "Review decisions applied. The ZIP is ready to download."
+        st.rerun()
+
+
 def run_matching(qbo_upload, bank_upload, date_tolerance: int) -> None:
     try:
         qbo_raw = read_uploaded_csv(qbo_upload)
@@ -323,6 +394,10 @@ def run_matching(qbo_upload, bank_upload, date_tolerance: int) -> None:
 
     st.session_state["results"] = results
     st.session_state["zip_buffer"] = create_output_zip(results)
+    st.session_state["review_decisions_applied"] = not (
+        results["Match confidence"] == "Review"
+    ).any()
+    st.session_state.pop("review_message", None)
 
 
 render_header()
@@ -371,10 +446,14 @@ st.subheader("Processing")
 if results_df is None:
     st.info("Upload both CSV files, choose a date tolerance, and run matching.")
 else:
+    review_message = st.session_state.pop("review_message", None)
+    if review_message:
+        st.success(review_message)
+
     metrics = build_summary_metrics(results_df)
     display_summary(metrics)
 
-    matched_df = results_df[results_df["Match confidence"].isin(["High", "Medium"])]
+    matched_df = results_df[results_df["Match confidence"].isin(["High", "Medium", "Manual"])]
     review_df = results_df[results_df["Match confidence"] == "Review"]
     unmatched_df = results_df[results_df["Match confidence"] == "Unmatched"]
 
@@ -394,13 +473,19 @@ else:
         st.dataframe(unmatched_df, use_container_width=True, hide_index=True)
 
     st.divider()
+    render_review_decisions(review_df)
+
+    st.divider()
     st.subheader("Downloads")
-    st.download_button(
-        label="Download ZIP output",
-        data=zip_buffer,
-        file_name="mastercard_receipt_followup_outputs.zip",
-        mime="application/zip",
-        type="primary",
-    )
+    if review_df.empty or st.session_state.get("review_decisions_applied", False):
+        st.download_button(
+            label="Download ZIP output",
+            data=zip_buffer,
+            file_name="mastercard_receipt_followup_outputs.zip",
+            mime="application/zip",
+            type="primary",
+        )
+    else:
+        st.info("Apply review decisions before downloading the final ZIP.")
 
 render_footer()

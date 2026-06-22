@@ -70,7 +70,7 @@ def match_transactions(
 def build_summary_metrics(results_df: pd.DataFrame) -> dict[str, object]:
     """Build the metrics shown in the Streamlit dashboard."""
     total_qbo = len(results_df)
-    matched = int(results_df["Match confidence"].isin(["High", "Medium"]).sum())
+    matched = int(results_df["Match confidence"].isin(["High", "Medium", "Manual"]).sum())
     review = int((results_df["Match confidence"] == "Review").sum())
     unmatched = int((results_df["Match confidence"] == "Unmatched").sum())
     match_rate = matched / total_qbo if total_qbo else 0
