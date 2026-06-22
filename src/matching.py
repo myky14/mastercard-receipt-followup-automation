@@ -47,18 +47,25 @@ def match_transactions(
             record["Match confidence"] = "High"
             record["Match note"] = "Matched by amount and date."
             used_bank_indexes.add(int(best_match.name))
+        elif _all_candidates_share_card(candidates):
+            record["Match confidence"] = "High"
+            record["Match note"] = "Matched by amount/date; multiple bank candidates share the same card."
+            used_bank_indexes.add(int(best_match.name))
+        elif _all_candidates_share_cardholder(candidates):
+            record["Match confidence"] = "High"
+            record["Match note"] = "Matched by amount/date; multiple cards resolve to the same cardholder."
+            used_bank_indexes.add(int(best_match.name))
         elif _has_clear_description_tie_break(candidates):
             record["Match confidence"] = "Medium"
             record["Match note"] = (
-                f"Matched by amount/date; selected best candidate from "
-                f"{len(candidates)} possible matches."
+                "Matched by amount/date; selected best description match from multiple cardholders."
             )
             used_bank_indexes.add(int(best_match.name))
         else:
             record["Match confidence"] = "Review"
             record["Match note"] = (
-                "Multiple bank transactions matched amount/date; "
-                "description tie-breaker was not clear."
+                "Multiple bank transactions matched amount/date across different cardholders; "
+                "manual review required."
             )
 
         match_records.append(record)
@@ -117,11 +124,21 @@ def _score_candidates(
         )
     )
     scored["cardholder_name"] = scored["card_last4"].map(cardholder_map).fillna("")
+    scored["candidate_count"] = len(scored)
     scored = scored.sort_values(
         by=["description_similarity", "date_difference_days"],
         ascending=[False, True],
     )
     return scored
+
+
+def _all_candidates_share_card(candidates: pd.DataFrame) -> bool:
+    return candidates["card_last4"].nunique(dropna=False) == 1
+
+
+def _all_candidates_share_cardholder(candidates: pd.DataFrame) -> bool:
+    cardholders = candidates["cardholder_name"].fillna("").astype(str).str.strip()
+    return bool((cardholders != "").all() and cardholders.nunique() == 1)
 
 
 def _has_clear_description_tie_break(candidates: pd.DataFrame) -> bool:
@@ -158,6 +175,7 @@ def _unmatched_record(qbo_row: pd.Series) -> dict[str, object]:
             "Match note": "No bank transaction matched amount/date within the selected tolerance.",
             "Date difference days": "",
             "Description similarity": "",
+            "Candidate count": 0,
             "Bank reference": "",
         }
     )
@@ -177,6 +195,7 @@ def _build_match_record(qbo_row: pd.Series, bank_row: pd.Series) -> dict[str, ob
             "Match note": "",
             "Date difference days": int(bank_row.get("date_difference_days", 0)),
             "Description similarity": round(float(bank_row.get("description_similarity", 0)), 1),
+            "Candidate count": int(bank_row.get("candidate_count", 1)),
             "Bank reference": bank_row.get("bank_reference", ""),
         }
     )

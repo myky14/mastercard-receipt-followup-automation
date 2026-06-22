@@ -9,12 +9,15 @@ from src.config import OUTPUT_COLUMNS
 from src.exporter import CARDHOLDER_OUTPUT_COLUMNS, build_output_frames, create_output_zip
 from src.matching import build_summary_metrics
 from src.review import (
-    ASSIGN_TO_CARDHOLDER,
+    APPROVE_SUGGESTED_ASSIGNMENT,
+    APPROVED_SUGGESTION_NOTE,
+    CHANGE_CARDHOLDER,
     KEEP_IN_NEED_REVIEW,
-    MANUAL_ASSIGNMENT_NOTE,
+    MANUAL_CARDHOLDER_CHANGE_NOTE,
     MANUAL_UNMATCHED_NOTE,
     MARK_AS_UNMATCHED,
     apply_review_decisions,
+    default_review_action,
 )
 
 
@@ -27,8 +30,8 @@ def _results_df() -> pd.DataFrame:
             "QBO Received": 0,
             "QBO From/To": "Uber",
             "QBO Amount": 34.72,
-            "Card number": "5555 4444 3333 9999",
-            "Cardholder name": "",
+            "Card number": "5555 4444 3333 3810",
+            "Cardholder name": "Shantae Gibson",
             "Bank transaction date": pd.Timestamp("2026-05-13"),
             "Bank description": "UBER CANADA TRIP",
             "Bank amount": 34.72,
@@ -84,23 +87,26 @@ class ReviewDecisionTests(unittest.TestCase):
             _results_df(),
             {
                 0: {
-                    "action": ASSIGN_TO_CARDHOLDER,
-                    "cardholder_name": "Shantae Gibson",
+                    "action": APPROVE_SUGGESTED_ASSIGNMENT,
+                    "cardholder_name": "",
+                    "suggested_cardholder_name": "Shantae Gibson",
                 },
                 1: {
                     "action": MARK_AS_UNMATCHED,
                     "cardholder_name": "",
+                    "suggested_cardholder_name": "",
                 },
                 2: {
                     "action": KEEP_IN_NEED_REVIEW,
                     "cardholder_name": "",
+                    "suggested_cardholder_name": "",
                 },
             },
         )
 
         self.assertEqual(reviewed.loc[0, "Cardholder name"], "Shantae Gibson")
         self.assertEqual(reviewed.loc[0, "Match confidence"], "Manual")
-        self.assertEqual(reviewed.loc[0, "Match note"], MANUAL_ASSIGNMENT_NOTE)
+        self.assertEqual(reviewed.loc[0, "Match note"], APPROVED_SUGGESTION_NOTE)
         self.assertEqual(reviewed.loc[1, "Cardholder name"], "")
         self.assertEqual(reviewed.loc[1, "Match confidence"], "Unmatched")
         self.assertEqual(reviewed.loc[1, "Match note"], MANUAL_UNMATCHED_NOTE)
@@ -111,16 +117,19 @@ class ReviewDecisionTests(unittest.TestCase):
             _results_df(),
             {
                 0: {
-                    "action": ASSIGN_TO_CARDHOLDER,
-                    "cardholder_name": "Shantae Gibson",
+                    "action": APPROVE_SUGGESTED_ASSIGNMENT,
+                    "cardholder_name": "",
+                    "suggested_cardholder_name": "Shantae Gibson",
                 },
                 1: {
                     "action": MARK_AS_UNMATCHED,
                     "cardholder_name": "",
+                    "suggested_cardholder_name": "",
                 },
                 2: {
                     "action": KEEP_IN_NEED_REVIEW,
                     "cardholder_name": "",
+                    "suggested_cardholder_name": "",
                 },
             },
         )
@@ -137,8 +146,9 @@ class ReviewDecisionTests(unittest.TestCase):
             _results_df(),
             {
                 0: {
-                    "action": ASSIGN_TO_CARDHOLDER,
-                    "cardholder_name": "Shantae Gibson",
+                    "action": APPROVE_SUGGESTED_ASSIGNMENT,
+                    "cardholder_name": "",
+                    "suggested_cardholder_name": "Shantae Gibson",
                 },
             },
         )
@@ -169,6 +179,17 @@ class ReviewDecisionTests(unittest.TestCase):
 
         self.assertEqual(amounts, [-34.72, 12.5])
 
+    def test_mastercard_exports_to_missing_receipts_file(self) -> None:
+        results = _results_df()
+        results.loc[0, "Card number"] = "5555 4444 3333 3812"
+        results.loc[0, "Cardholder name"] = "Mastercard"
+        results.loc[0, "Match confidence"] = "Manual"
+
+        frames = build_output_frames(results)
+
+        self.assertIn("Mastercard_missing_receipts.xlsx", frames)
+        self.assertEqual(len(frames["Mastercard_missing_receipts.xlsx"]), 1)
+
     def test_cardholder_filename_convention(self) -> None:
         frames = build_output_frames(_results_df())
 
@@ -177,6 +198,7 @@ class ReviewDecisionTests(unittest.TestCase):
         self.assertIn("Brittany_Leborgne_missing_receipts.xlsx", frames)
         self.assertIn("Ernest_Webb_missing_receipts.xlsx", frames)
         self.assertIn("Shantae_Gibson_missing_receipts.xlsx", frames)
+        self.assertIn("Mastercard_missing_receipts.xlsx", frames)
         self.assertNotIn("Shantae_Gibson.xlsx", frames)
 
     def test_matching_log_exists_in_zip(self) -> None:
@@ -190,8 +212,9 @@ class ReviewDecisionTests(unittest.TestCase):
             _results_df(),
             {
                 0: {
-                    "action": ASSIGN_TO_CARDHOLDER,
-                    "cardholder_name": "Shantae Gibson",
+                    "action": APPROVE_SUGGESTED_ASSIGNMENT,
+                    "cardholder_name": "",
+                    "suggested_cardholder_name": "Shantae Gibson",
                 },
             },
         )
@@ -200,6 +223,29 @@ class ReviewDecisionTests(unittest.TestCase):
 
         self.assertEqual(metrics["Matched transactions"], 1)
         self.assertEqual(metrics["Need review transactions"], 2)
+
+    def test_change_cardholder_uses_manual_change_note(self) -> None:
+        reviewed = apply_review_decisions(
+            _results_df(),
+            {
+                0: {
+                    "action": CHANGE_CARDHOLDER,
+                    "cardholder_name": "Mastercard",
+                    "suggested_cardholder_name": "Shantae Gibson",
+                },
+            },
+        )
+
+        self.assertEqual(reviewed.loc[0, "Cardholder name"], "Mastercard")
+        self.assertEqual(reviewed.loc[0, "Match confidence"], "Manual")
+        self.assertEqual(reviewed.loc[0, "Match note"], MANUAL_CARDHOLDER_CHANGE_NOTE)
+
+    def test_default_review_action_approves_when_suggestion_exists(self) -> None:
+        suggested_row = _results_df().loc[0]
+        unsuggested_row = _results_df().loc[1]
+
+        self.assertEqual(default_review_action(suggested_row), APPROVE_SUGGESTED_ASSIGNMENT)
+        self.assertEqual(default_review_action(unsuggested_row), KEEP_IN_NEED_REVIEW)
 
 
 if __name__ == "__main__":

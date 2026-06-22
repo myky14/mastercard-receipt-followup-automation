@@ -14,10 +14,12 @@ from src.config import CARDHOLDER_NAMES, DEFAULT_DATE_TOLERANCE_DAYS
 from src.exporter import create_output_zip
 from src.matching import build_summary_metrics, match_transactions
 from src.review import (
-    ASSIGN_TO_CARDHOLDER,
+    APPROVE_SUGGESTED_ASSIGNMENT,
+    CHANGE_CARDHOLDER,
     KEEP_IN_NEED_REVIEW,
     MARK_AS_UNMATCHED,
     apply_review_decisions,
+    default_review_action,
 )
 
 
@@ -311,12 +313,26 @@ def display_summary(metrics: dict[str, object]) -> None:
 
 def _format_review_item_label(row_index: int, row: pd.Series) -> str:
     description = row.get("QBO Bank description", "Transaction")
-    amount = row.get("QBO Amount", 0)
+    amount = _review_display_amount(row)
     try:
         amount_text = f"${float(amount):,.2f}"
     except (TypeError, ValueError):
         amount_text = str(amount)
     return f"Review item {row_index + 1}: {description} ({amount_text})"
+
+
+def _review_display_amount(row: pd.Series) -> float:
+    spent = pd.to_numeric(row.get("QBO Spent", 0), errors="coerce")
+    received = pd.to_numeric(row.get("QBO Received", 0), errors="coerce")
+
+    if pd.notna(spent) and spent:
+        return -abs(float(spent))
+    if pd.notna(received) and received:
+        return abs(float(received))
+    amount = pd.to_numeric(row.get("QBO Amount", 0), errors="coerce")
+    if pd.notna(amount):
+        return float(amount)
+    return 0
 
 
 def render_review_decisions(review_df: pd.DataFrame) -> None:
@@ -334,35 +350,47 @@ def render_review_decisions(review_df: pd.DataFrame) -> None:
     st.caption("Choose an action for each review item, then apply the decisions.")
 
     decisions: dict[int, dict[str, str]] = {}
-    action_options = [
-        KEEP_IN_NEED_REVIEW,
-        ASSIGN_TO_CARDHOLDER,
-        MARK_AS_UNMATCHED,
-    ]
 
     for row_index, row in review_df.iterrows():
         with st.expander(_format_review_item_label(row_index, row), expanded=False):
-            st.write(f"QBO description: {row.get('QBO Bank description', '')}")
-            st.write(f"Bank description: {row.get('Bank description', '')}")
-            st.write(f"Current note: {row.get('Match note', '')}")
+            suggested_cardholder = str(row.get("Cardholder name", "") or "").strip()
+            action_options = [
+                APPROVE_SUGGESTED_ASSIGNMENT,
+                CHANGE_CARDHOLDER,
+                KEEP_IN_NEED_REVIEW,
+                MARK_AS_UNMATCHED,
+            ]
+            default_action = default_review_action(row)
+
+            st.write(f"QBO Date: {row.get('QBO Date', '')}")
+            st.write(f"Bank description: {row.get('QBO Bank description', '')}")
+            st.write(f"From/To: {row.get('QBO From/To', '')}")
+            st.write(f"Amount: {_review_display_amount(row):,.2f}")
+            st.write(f"Suggested card number: {row.get('Card number', '') or 'None'}")
+            st.write(f"Suggested cardholder: {suggested_cardholder or 'None'}")
+            st.write(f"Match note: {row.get('Match note', '')}")
 
             action = st.selectbox(
                 "Decision",
                 action_options,
+                index=action_options.index(default_action),
                 key=f"review_action_{row_index}",
             )
             selected_cardholder = ""
 
-            if action == ASSIGN_TO_CARDHOLDER:
+            if action == CHANGE_CARDHOLDER:
                 selected_cardholder = st.selectbox(
                     "Cardholder",
                     CARDHOLDER_NAMES,
                     key=f"review_cardholder_{row_index}",
                 )
+            elif action == APPROVE_SUGGESTED_ASSIGNMENT and not suggested_cardholder:
+                st.info("No suggested cardholder is available for this review item.")
 
             decisions[int(row_index)] = {
                 "action": action,
                 "cardholder_name": selected_cardholder,
+                "suggested_cardholder_name": suggested_cardholder,
             }
 
     if st.button("Apply Review Decisions", type="primary"):

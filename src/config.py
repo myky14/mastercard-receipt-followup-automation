@@ -10,6 +10,7 @@ DEFAULT_CARDHOLDER_MAP = {
     "3811": "Archita Ghosh",
     "3818": "Brittany Leborgne",
     "3810": "Shantae Gibson",
+    "3812": "Mastercard",
     "5589": "Ernest Webb",
     "2261": "Ernest Webb",
 }
@@ -20,6 +21,7 @@ CARDHOLDER_NAMES = [
     "Brittany Leborgne",
     "Ernest Webb",
     "Shantae Gibson",
+    "Mastercard",
 ]
 
 OUTPUT_COLUMNS = [
@@ -38,5 +40,6 @@ OUTPUT_COLUMNS = [
     "Match note",
     "Date difference days",
     "Description similarity",
+    "Candidate count",
     "Bank reference",
 ]

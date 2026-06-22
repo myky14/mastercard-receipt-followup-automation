@@ -75,11 +75,55 @@ class MatchingConfidenceTests(unittest.TestCase):
         self.assertEqual(results.loc[0, "Match confidence"], "High")
         self.assertEqual(results.loc[0, "Cardholder name"], "Shantae Gibson")
 
+    def test_mastercard_card_mapping_is_available(self) -> None:
+        bank_df = pd.DataFrame([_bank_row("MONTHLY CARD FEE", card_last4="3812")])
+
+        results = match_transactions(_qbo_row("MONTHLY CARD FEE"), bank_df)
+
+        self.assertEqual(results.loc[0, "Match confidence"], "High")
+        self.assertEqual(results.loc[0, "Cardholder name"], "Mastercard")
+
+    def test_multiple_candidates_with_same_card_number_auto_assign_high(self) -> None:
+        bank_df = pd.DataFrame(
+            [
+                _bank_row("UBER CANADA TRIP", card_last4="3818", reference="MC1001"),
+                _bank_row("UBER TRIP TORONTO", card_last4="3818", reference="MC1002"),
+            ]
+        )
+
+        results = match_transactions(_qbo_row("UBER TRIP"), bank_df)
+
+        self.assertEqual(results.loc[0, "Match confidence"], "High")
+        self.assertEqual(results.loc[0, "Cardholder name"], "Brittany Leborgne")
+        self.assertEqual(
+            results.loc[0, "Match note"],
+            "Matched by amount/date; multiple bank candidates share the same card.",
+        )
+        self.assertEqual(results.loc[0, "Candidate count"], 2)
+
+    def test_multiple_candidates_with_same_cardholder_auto_assign_high(self) -> None:
+        bank_df = pd.DataFrame(
+            [
+                _bank_row("PARKING GARAGE", card_last4="5589", reference="MC1001"),
+                _bank_row("AIRPORT PARKING", card_last4="2261", reference="MC1002"),
+            ]
+        )
+
+        results = match_transactions(_qbo_row("PARKING"), bank_df)
+
+        self.assertEqual(results.loc[0, "Match confidence"], "High")
+        self.assertEqual(results.loc[0, "Cardholder name"], "Ernest Webb")
+        self.assertEqual(
+            results.loc[0, "Match note"],
+            "Matched by amount/date; multiple cards resolve to the same cardholder.",
+        )
+        self.assertEqual(results.loc[0, "Candidate count"], 2)
+
     def test_multiple_candidates_use_description_similarity_for_medium_match(self) -> None:
         bank_df = pd.DataFrame(
             [
-                _bank_row("AMZN MKTPLACE CA", reference="MC1001"),
-                _bank_row("AMAZON WEB SERVICES", reference="MC1002"),
+                _bank_row("AMZN MKTPLACE CA", card_last4="3894", reference="MC1001"),
+                _bank_row("DELTA AIR LINES", card_last4="3811", reference="MC1002"),
             ]
         )
 
@@ -87,20 +131,27 @@ class MatchingConfidenceTests(unittest.TestCase):
 
         self.assertEqual(results.loc[0, "Match confidence"], "Medium")
         self.assertEqual(results.loc[0, "Bank reference"], "MC1001")
-        self.assertIn("selected best candidate", results.loc[0, "Match note"])
+        self.assertEqual(
+            results.loc[0, "Match note"],
+            "Matched by amount/date; selected best description match from multiple cardholders.",
+        )
 
     def test_multiple_candidates_with_no_clear_best_remain_review(self) -> None:
         bank_df = pd.DataFrame(
             [
-                _bank_row("UBER CANADA TRIP", reference="MC1001"),
-                _bank_row("UBER TRIP TORONTO", reference="MC1002"),
+                _bank_row("UBER CANADA TRIP", card_last4="3894", reference="MC1001"),
+                _bank_row("UBER TRIP TORONTO", card_last4="3811", reference="MC1002"),
             ]
         )
 
         results = match_transactions(_qbo_row("UBER TRIP"), bank_df)
 
         self.assertEqual(results.loc[0, "Match confidence"], "Review")
-        self.assertIn("tie-breaker was not clear", results.loc[0, "Match note"])
+        self.assertEqual(
+            results.loc[0, "Match note"],
+            "Multiple bank transactions matched amount/date across different cardholders; "
+            "manual review required.",
+        )
 
 
 if __name__ == "__main__":

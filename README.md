@@ -108,7 +108,7 @@ ZIP Download
 
 Confidence levels:
 
-- `High`: amount/date match with one bank candidate
+- `High`: amount/date match with one bank candidate, or multiple candidates that share the same card or resolve to the same cardholder
 - `Medium`: amount/date match with multiple candidates where description similarity clearly identifies the best candidate
 - `Review`: multiple candidates with no clear best candidate, unmapped card number, or another issue needing manual review
 - `Manual`: review item assigned to a cardholder in the Streamlit review section
@@ -269,6 +269,7 @@ Current built-in cardholders:
 - Brittany Leborgne
 - Ernest Webb
 - Shantae Gibson
+- Mastercard
 
 ## Output Files
 
@@ -280,6 +281,7 @@ The ZIP download contains:
   - `Brittany_Leborgne_missing_receipts.xlsx`
   - `Ernest_Webb_missing_receipts.xlsx`
   - `Shantae_Gibson_missing_receipts.xlsx`
+  - `Mastercard_missing_receipts.xlsx`
 - `Matching_Log.xlsx` for internal matching review
 - `Need_Review.xlsx` for unresolved review items
 - `Unmatched_QBO.xlsx` for unmatched QBO transactions
