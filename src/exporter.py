@@ -12,17 +12,28 @@ from openpyxl.utils import get_column_letter
 from src.config import CARDHOLDER_NAMES, OUTPUT_COLUMNS
 
 
+CARDHOLDER_OUTPUT_COLUMNS = [
+    "Date",
+    "Bank description",
+    "From/To",
+    "Amount",
+    "Card number",
+    "Cardholder Name",
+]
+
+
 def build_output_frames(results_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """Split matched results into the required workbook outputs."""
     frames: dict[str, pd.DataFrame] = {}
     cardholder_ready = results_df["Match confidence"].isin(["High", "Medium", "Manual"])
 
     for cardholder_name in CARDHOLDER_NAMES:
-        filename = f"{cardholder_name.replace(' ', '_')}.xlsx"
-        frames[filename] = _ensure_output_columns(
+        filename = cardholder_output_filename(cardholder_name)
+        frames[filename] = build_cardholder_output_frame(
             results_df.loc[cardholder_ready & (results_df["Cardholder name"] == cardholder_name)]
         )
 
+    frames["Matching_Log.xlsx"] = _ensure_output_columns(results_df)
     frames["Need_Review.xlsx"] = _ensure_output_columns(
         results_df.loc[results_df["Match confidence"] == "Review"]
     )
@@ -31,6 +42,26 @@ def build_output_frames(results_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     )
 
     return frames
+
+
+def cardholder_output_filename(cardholder_name: str) -> str:
+    """Build the manager-ready missing receipt workbook filename."""
+    return f"{cardholder_name.replace(' ', '_')}_missing_receipts.xlsx"
+
+
+def build_cardholder_output_frame(results_df: pd.DataFrame) -> pd.DataFrame:
+    """Build clean manager-ready cardholder output columns."""
+    output = pd.DataFrame(
+        {
+            "Date": results_df["QBO Date"],
+            "Bank description": results_df["QBO Bank description"],
+            "From/To": results_df["QBO From/To"],
+            "Amount": results_df.apply(_qbo_signed_amount, axis=1),
+            "Card number": results_df["Card number"],
+            "Cardholder Name": results_df["Cardholder name"],
+        }
+    )
+    return output.reindex(columns=CARDHOLDER_OUTPUT_COLUMNS)
 
 
 def create_output_zip(results_df: pd.DataFrame) -> BytesIO:
@@ -49,7 +80,7 @@ def create_output_zip(results_df: pd.DataFrame) -> BytesIO:
 def dataframe_to_excel_bytes(df: pd.DataFrame, sheet_name: str = "Transactions") -> BytesIO:
     """Write a DataFrame to a professionally formatted Excel workbook."""
     buffer = BytesIO()
-    export_df = _ensure_output_columns(df).copy()
+    export_df = df.copy()
     export_df = export_df.fillna("")
 
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
@@ -63,6 +94,29 @@ def dataframe_to_excel_bytes(df: pd.DataFrame, sheet_name: str = "Transactions")
 
 def _ensure_output_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df.reindex(columns=OUTPUT_COLUMNS)
+
+
+def _qbo_signed_amount(row: pd.Series) -> float:
+    spent = _safe_number(row.get("QBO Spent", 0))
+    received = _safe_number(row.get("QBO Received", 0))
+
+    if spent:
+        return -abs(spent)
+    if received:
+        return abs(received)
+    return 0
+
+
+def _safe_number(value) -> float:
+    if value is None:
+        return 0
+    if isinstance(value, str) and not value.strip():
+        return 0
+
+    number = pd.to_numeric(value, errors="coerce")
+    if pd.isna(number):
+        return 0
+    return float(number)
 
 
 def _safe_excel_text(value) -> str:

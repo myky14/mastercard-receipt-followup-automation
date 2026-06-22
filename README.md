@@ -274,15 +274,26 @@ Current built-in cardholders:
 
 The ZIP download contains:
 
-- `Catherine_Bainbridge.xlsx`
-- `Archita_Ghosh.xlsx`
-- `Brittany_Leborgne.xlsx`
-- `Ernest_Webb.xlsx`
-- `Shantae_Gibson.xlsx`
-- `Need_Review.xlsx`
-- `Unmatched_QBO.xlsx`
+- one clean missing receipt file per cardholder:
+  - `Catherine_Bainbridge_missing_receipts.xlsx`
+  - `Archita_Ghosh_missing_receipts.xlsx`
+  - `Brittany_Leborgne_missing_receipts.xlsx`
+  - `Ernest_Webb_missing_receipts.xlsx`
+  - `Shantae_Gibson_missing_receipts.xlsx`
+- `Matching_Log.xlsx` for internal matching review
+- `Need_Review.xlsx` for unresolved review items
+- `Unmatched_QBO.xlsx` for unmatched QBO transactions
 
-Each Excel file includes QBO details, bank match details, cardholder name, match confidence, and match notes.
+Cardholder missing receipt files are manager-ready and only include these columns:
+
+- `Date`
+- `Bank description`
+- `From/To`
+- `Amount`
+- `Card number`
+- `Cardholder Name`
+
+`Matching_Log.xlsx`, `Need_Review.xlsx`, and `Unmatched_QBO.xlsx` include detailed QBO fields, bank match fields, match confidence, match notes, and other internal review details.
 
 If the app finds ambiguous matches or missing cardholder mappings, those rows appear in a manual review section before the ZIP download. Each review item can be assigned to a cardholder, kept in `Need_Review.xlsx`, or marked as unmatched for `Unmatched_QBO.xlsx`.
 

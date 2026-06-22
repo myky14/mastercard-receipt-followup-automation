@@ -234,7 +234,7 @@ def render_workflow_visual() -> None:
             <div class="workflow-card">
                 <div class="workflow-number">5</div>
                 <div class="workflow-title">Generate Excel Reports</div>
-                <div class="workflow-copy">Create cardholder, review, and unmatched workbooks.</div>
+                <div class="workflow-copy">Create clean cardholder files plus internal review workbooks.</div>
             </div>
             <div class="workflow-card">
                 <div class="workflow-number">6</div>
@@ -477,9 +477,14 @@ else:
 
     st.divider()
     st.subheader("Downloads")
+    st.write(
+        "The ZIP includes clean manager-ready missing receipt files for each cardholder, "
+        "Matching_Log.xlsx with detailed matching/debug information, and exception files "
+        "for Need Review and Unmatched QBO items."
+    )
     if review_df.empty or st.session_state.get("review_decisions_applied", False):
         st.download_button(
-            label="Download ZIP output",
+            label="Download final ZIP output",
             data=zip_buffer,
             file_name="mastercard_receipt_followup_outputs.zip",
             mime="application/zip",

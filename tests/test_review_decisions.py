@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import unittest
+from zipfile import ZipFile
 
 import pandas as pd
 
 from src.config import OUTPUT_COLUMNS
-from src.exporter import build_output_frames
+from src.exporter import CARDHOLDER_OUTPUT_COLUMNS, build_output_frames, create_output_zip
 from src.matching import build_summary_metrics
 from src.review import (
     ASSIGN_TO_CARDHOLDER,
@@ -126,10 +127,63 @@ class ReviewDecisionTests(unittest.TestCase):
 
         frames = build_output_frames(reviewed)
 
-        self.assertIn("Shantae_Gibson.xlsx", frames)
-        self.assertEqual(len(frames["Shantae_Gibson.xlsx"]), 1)
+        self.assertIn("Shantae_Gibson_missing_receipts.xlsx", frames)
+        self.assertEqual(len(frames["Shantae_Gibson_missing_receipts.xlsx"]), 1)
         self.assertEqual(len(frames["Need_Review.xlsx"]), 1)
         self.assertEqual(len(frames["Unmatched_QBO.xlsx"]), 1)
+
+    def test_cardholder_output_columns_are_clean_and_ordered(self) -> None:
+        reviewed = apply_review_decisions(
+            _results_df(),
+            {
+                0: {
+                    "action": ASSIGN_TO_CARDHOLDER,
+                    "cardholder_name": "Shantae Gibson",
+                },
+            },
+        )
+
+        frames = build_output_frames(reviewed)
+        cardholder_frame = frames["Shantae_Gibson_missing_receipts.xlsx"]
+
+        self.assertEqual(list(cardholder_frame.columns), CARDHOLDER_OUTPUT_COLUMNS)
+        self.assertNotIn("Match confidence", cardholder_frame.columns)
+        self.assertNotIn("Match note", cardholder_frame.columns)
+        self.assertNotIn("Bank amount", cardholder_frame.columns)
+
+    def test_cardholder_amount_uses_signed_qbo_spent_and_received(self) -> None:
+        results = _results_df()
+        results["QBO Received"] = results["QBO Received"].astype(float)
+        results.loc[0, "Cardholder name"] = "Shantae Gibson"
+        results.loc[0, "Match confidence"] = "Manual"
+        results.loc[0, "QBO Spent"] = 34.72
+        results.loc[0, "QBO Received"] = 0
+        results.loc[2, "Cardholder name"] = "Shantae Gibson"
+        results.loc[2, "Match confidence"] = "Manual"
+        results.loc[2, "QBO Spent"] = 0
+        results.loc[2, "QBO Received"] = 12.5
+        results.loc[2, "Bank amount"] = -999
+
+        frames = build_output_frames(results)
+        amounts = frames["Shantae_Gibson_missing_receipts.xlsx"]["Amount"].tolist()
+
+        self.assertEqual(amounts, [-34.72, 12.5])
+
+    def test_cardholder_filename_convention(self) -> None:
+        frames = build_output_frames(_results_df())
+
+        self.assertIn("Catherine_Bainbridge_missing_receipts.xlsx", frames)
+        self.assertIn("Archita_Ghosh_missing_receipts.xlsx", frames)
+        self.assertIn("Brittany_Leborgne_missing_receipts.xlsx", frames)
+        self.assertIn("Ernest_Webb_missing_receipts.xlsx", frames)
+        self.assertIn("Shantae_Gibson_missing_receipts.xlsx", frames)
+        self.assertNotIn("Shantae_Gibson.xlsx", frames)
+
+    def test_matching_log_exists_in_zip(self) -> None:
+        zip_buffer = create_output_zip(_results_df())
+
+        with ZipFile(zip_buffer) as archive:
+            self.assertIn("Matching_Log.xlsx", archive.namelist())
 
     def test_manual_assignments_count_as_matched_in_summary(self) -> None:
         reviewed = apply_review_decisions(
